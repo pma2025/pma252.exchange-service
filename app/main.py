@@ -1,21 +1,31 @@
 from fastapi import FastAPI, Depends, HTTPException
-from app.clients.rates import fetch_rate
-from app.models import QuoteOut
-from app.auth import require_auth
-from app.config import settings
+from .auth import require_auth
+from .rates import get_exchange_rate
+from .models import ExchangeResponse, ErrorResponse
+from .config import settings
 
-app = FastAPI(title="Exchange API", version="1.0.0")
+app = FastAPI(title="Exchange Service", version="1.0.0")
 
-@app.get("/exchange/{from_curr}/{to_curr}", response_model=QuoteOut)
-async def get_exchange(from_curr: str, to_curr: str, claims: dict = Depends(require_auth)):
-    try:
-        rate, date = await fetch_rate(from_curr, to_curr)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"rate provider error: {e!s}")
 
-    half = settings.spread / 2.0
-    sell = round(rate * (1 + half), 6)
-    buy  = round(rate * (1 - half), 6)
+@app.get(
+    "/exchange/{base}/{target}",
+    response_model=ExchangeResponse,
+    responses={
+        400: {
+            "model": ErrorResponse
+        },
+        401: {
+            "model": ErrorResponse
+        }
+    },
+)
+async def exchange_rate(base: str,
+                        target: str,
+                        account_id: str = Depends(require_auth)):
+    rate_data = await get_exchange_rate(base, target)
 
-    account_id = claims["id-account"]
-    return {"sell": sell, "buy": buy, "date": date, "id-account": str(account_id)}
+    if not rate_data:
+        raise HTTPException(status_code=400,
+                            detail=f"Invalid currency pair {base}/{target}")
+
+    return rate_data

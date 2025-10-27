@@ -1,12 +1,13 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-class QuoteOut(BaseModel):
-    sell: float
+
+class ExchangeResponse(BaseModel):
+    base: str
+    target: str
+    rate: float
     buy: float
-    date: str
-    id_account: str = Field(..., alias="id-account")
+    sell: float
 
-    class Config:
-        # garante que o FastAPI use o alias no JSON de saída
-        populate_by_name = True
-        orm_mode = True
+
+class ErrorResponse(BaseModel):
+    detail: str
